@@ -78,7 +78,7 @@ namespace RegexWebApp.Controllers
         {
             if (ModelState.IsValid)
             {
-                var user = new ApplicationUser() { UserName = model.UserName };
+                var user = new ApplicationUser() { UserName = model.UserName, Email = model.Email };
                 var result = await UserManager.CreateAsync(user, model.Password);
                 if (result.Succeeded)
                 {
@@ -118,8 +118,13 @@ namespace RegexWebApp.Controllers
         // GET: /Account/Manage
         public ActionResult Manage(ManageMessageId? message)
         {
+            var currentUserId = User.Identity.GetUserId();
+            var user = UserManager.FindById(currentUserId);
+            ViewBag.Email = user.Email;
+
             ViewBag.StatusMessage =
-                message == ManageMessageId.ChangePasswordSuccess ? "Your password has been changed."
+                message == ManageMessageId.ChangeUserSuccess ? "Your user profile has been changed."
+                : message == ManageMessageId.IncorrectPassword? "The current password entered was incorrect."
                 : message == ManageMessageId.SetPasswordSuccess ? "Your password has been set."
                 : message == ManageMessageId.RemoveLoginSuccess ? "The external login was removed."
                 : message == ManageMessageId.Error ? "An error has occurred."
@@ -138,18 +143,43 @@ namespace RegexWebApp.Controllers
             bool hasPassword = HasPassword();
             ViewBag.HasLocalPassword = hasPassword;
             ViewBag.ReturnUrl = Url.Action("Manage");
+            var currentUser = getCurrentUser();
+            currentUser.Email = model.Email;
+
             if (hasPassword)
             {
                 if (ModelState.IsValid)
                 {
-                    IdentityResult result = await UserManager.ChangePasswordAsync(User.Identity.GetUserId(), model.OldPassword, model.NewPassword);
-                    if (result.Succeeded)
+                    var userValid = await UserManager.FindAsync(currentUser.UserName, model.OldPassword);
+                    if (userValid == null)
                     {
-                        return RedirectToAction("Manage", new { Message = ManageMessageId.ChangePasswordSuccess });
+                        return RedirectToAction("Manage", new { Message = ManageMessageId.IncorrectPassword });
+                    }
+                    if (model.NewPassword != null)
+                    {
+                        IdentityResult result1= await UserManager.ChangePasswordAsync(User.Identity.GetUserId(), model.OldPassword, model.NewPassword);
+                        IdentityResult result2 = await UserManager.UpdateAsync(currentUser);
+                        if (result1.Succeeded && result2.Succeeded)
+                        {
+                            return RedirectToAction("Manage", new { Message = ManageMessageId.ChangeUserSuccess });
+                        }
+                        else
+                        {
+                            AddErrors(result1);
+                            AddErrors(result2);
+                        }
                     }
                     else
                     {
-                        AddErrors(result);
+                        IdentityResult result = await UserManager.UpdateAsync(currentUser);
+                        if (result.Succeeded)
+                        {
+                            return RedirectToAction("Manage", new { Message = ManageMessageId.ChangeUserSuccess });
+                        }
+                        else
+                        {
+                            AddErrors(result);
+                        }
                     }
                 }
             }
@@ -178,6 +208,13 @@ namespace RegexWebApp.Controllers
 
             // If we got this far, something failed, redisplay form
             return View(model);
+        }
+
+        private ApplicationUser getCurrentUser()
+        {
+            var currentUserId = User.Identity.GetUserId();
+            var user = UserManager.FindById(currentUserId);
+            return user;
         }
 
         //
@@ -358,7 +395,8 @@ namespace RegexWebApp.Controllers
 
         public enum ManageMessageId
         {
-            ChangePasswordSuccess,
+            ChangeUserSuccess,
+            IncorrectPassword,
             SetPasswordSuccess,
             RemoveLoginSuccess,
             Error

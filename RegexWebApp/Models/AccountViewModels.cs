@@ -16,7 +16,10 @@ namespace RegexWebApp.Models
         [Display(Name = "Current password")]
         public string OldPassword { get; set; }
 
-        [Required]
+        [DataType(DataType.EmailAddress)]
+        [Display(Name = "Recovery email (optional)")]
+        public string Email { get; set; }
+
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
         [DataType(DataType.Password)]
         [Display(Name = "New password")]
@@ -48,6 +51,10 @@ namespace RegexWebApp.Models
         [Required]
         [Display(Name = "User name")]
         public string UserName { get; set; }
+
+        [DataType(DataType.EmailAddress)]
+        [Display(Name = "Recovery email (optional)")]
+        public string Email { get; set; }
 
         [Required]
         [StringLength(100, ErrorMessage = "The {0} must be at least {2} characters long.", MinimumLength = 6)]
